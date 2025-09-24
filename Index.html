@@ -1,0 +1,41 @@
+<!-- index.html -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Stock Polling Demo</title></head>
+<body>
+  <h1>Quote: <span id="symbol">AAPL</span></h1>
+  <div>Price: <span id="price">—</span></div>
+  <div>Time: <span id="time">—</span></div>
+
+  <script>
+    const API_KEY = "YOUR_ALPHA_VANTAGE_KEY"; // replace securely in prod
+    const symbol = "AAPL";
+    const priceEl = document.getElementById("price");
+    const timeEl = document.getElementById("time");
+
+    async function fetchQuote() {
+      try {
+        // Using GLOBAL_QUOTE endpoint
+        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const q = data["Global Quote"];
+        if (q) {
+          priceEl.textContent = q["05. price"] || "N/A";
+          timeEl.textContent = q["07. latest trading day"] || new Date().toLocaleString();
+        } else {
+          priceEl.textContent = "no data";
+          timeEl.textContent = JSON.stringify(data);
+        }
+      } catch (err) {
+        priceEl.textContent = "error";
+        timeEl.textContent = err.message;
+      }
+    }
+
+    // Poll every 15 seconds (adjust to API's rate limits)
+    fetchQuote();
+    setInterval(fetchQuote, 15000);
+  </script>
+</body>
+</html>
