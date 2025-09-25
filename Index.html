@@ -1,41 +1,97 @@
-<!-- index.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Stock Polling Demo</title></head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Realtime Stock Ticker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 0;
+      background: #111;
+      color: #fff;
+    }
+    #ticker-container {
+      overflow: hidden;
+      white-space: nowrap;
+      background: #222;
+      padding: 10px 0;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    #ticker {
+      display: inline-block;
+      animation: scroll 20s linear infinite;
+    }
+    .item {
+      display: inline-block;
+      margin-right: 40px;
+      font-size: 18px;
+    }
+    .symbol {
+      font-weight: bold;
+      color: #00ff90;
+    }
+    .price {
+      color: #fff;
+    }
+    @keyframes scroll {
+      0% { transform: translateX(100%); }
+      100% { transform: translateX(-100%); }
+    }
+  </style>
+</head>
 <body>
-  <h1>Quote: <span id="symbol">AAPL</span></h1>
-  <div>Price: <span id="price">—</span></div>
-  <div>Time: <span id="time">—</span></div>
+
+  <h1 style="text-align:center;">Realtime Stock Ticker</h1>
+  <div id="ticker-container">
+    <div id="ticker"></div>
+  </div>
 
   <script>
-    const API_KEY = "YOUR_ALPHA_VANTAGE_KEY"; // replace securely in prod
-    const symbol = "AAPL";
-    const priceEl = document.getElementById("price");
-    const timeEl = document.getElementById("time");
+    // Replace with your own API key
+    const FINNHUB_API_KEY = 'YOUR_FINNHUB_API_KEY';
 
-    async function fetchQuote() {
-      try {
-        // Using GLOBAL_QUOTE endpoint
-        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        const q = data["Global Quote"];
-        if (q) {
-          priceEl.textContent = q["05. price"] || "N/A";
-          timeEl.textContent = q["07. latest trading day"] || new Date().toLocaleString();
-        } else {
-          priceEl.textContent = "no data";
-          timeEl.textContent = JSON.stringify(data);
-        }
-      } catch (err) {
-        priceEl.textContent = "error";
-        timeEl.textContent = err.message;
+    // Symbols to subscribe to:
+    const symbols = ['AAPL', 'MSFT', 'TSLA', 'GOOGL', 'AMZN'];
+
+    // WebSocket connection
+    const socket = new WebSocket(`wss://ws.finnhub.io?token=${FINNHUB_API_KEY}`);
+
+    // Keep track of latest prices
+    const prices = {};
+
+    socket.addEventListener('open', () => {
+      console.log('Connected to Finnhub WebSocket');
+      symbols.forEach(sym => {
+        socket.send(JSON.stringify({ type: 'subscribe', symbol: sym }));
+      });
+    });
+
+    socket.addEventListener('message', (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'trade' && msg.data) {
+        msg.data.forEach(trade => {
+          prices[trade.s] = trade.p;
+        });
+        updateTicker();
+      }
+    });
+
+    socket.addEventListener('close', () => console.log('WebSocket closed'));
+    socket.addEventListener('error', (e) => console.error('WebSocket error', e));
+
+    function updateTicker() {
+      const tickerEl = document.getElementById('ticker');
+      tickerEl.innerHTML = ''; // clear
+      for (const sym of symbols) {
+        const price = prices[sym] || '—';
+        const item = document.createElement('div');
+        item.className = 'item';
+        item.innerHTML = `<span class="symbol">${sym}</span>: <span class="price">${price}</span>`;
+        tickerEl.appendChild(item);
       }
     }
-
-    // Poll every 15 seconds (adjust to API's rate limits)
-    fetchQuote();
-    setInterval(fetchQuote, 15000);
   </script>
+
 </body>
 </html>
